@@ -1,0 +1,42 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"monitoring.coreos.com/v1","kind":"ServiceMonitor","metadata":{"annotations":{},"labels":{"monitoring":"istio-dataplane","release":"prometheus"},"name":"envoy-stats","namespace":"default"},"spec":{"endpoints":[{"interval":"15s","path":"/stats/prometheus","relabelings":[{"action":"keep","regex":".*-envoy-prom","sourceLabels":["__meta_kubernetes_pod_container_port_name"]},{"action":"labelmap","regex":"__meta_kubernetes_pod_label_(.+)"},{"action":"replace","sourceLabels":["__meta_kubernetes_namespace"],"targetLabel":"namespace"},{"action":"replace","sourceLabels":["__meta_kubernetes_pod_name"],"targetLabel":"pod_name"}],"targetPort":"http-envoy-prom"}],"jobLabel":"envoy-stats","namespaceSelector":{"any":true},"selector":{"matchExpressions":[{"key":"istio-prometheus-ignore","operator":"DoesNotExist"}]}}}
+  creationTimestamp: "2022-04-22T06:59:39Z"
+  generation: 1
+  labels:
+    monitoring: istio-dataplane
+    release: prometheus
+  name: envoy-stats
+  namespace: default
+  resourceVersion: "11475"
+  uid: dbb31d2e-a965-4bad-b618-65bc8a03c76c
+spec:
+  endpoints:
+  - interval: 15s
+    path: /stats/prometheus
+    relabelings:
+    - action: keep
+      regex: .*-envoy-prom
+      sourceLabels:
+      - __meta_kubernetes_pod_container_port_name
+    - action: labelmap
+      regex: __meta_kubernetes_pod_label_(.+)
+    - action: replace
+      sourceLabels:
+      - __meta_kubernetes_namespace
+      targetLabel: namespace
+    - action: replace
+      sourceLabels:
+      - __meta_kubernetes_pod_name
+      targetLabel: pod_name
+    targetPort: http-envoy-prom
+  jobLabel: envoy-stats
+  namespaceSelector:
+    any: true
+  selector:
+    matchExpressions:
+    - key: istio-prometheus-ignore
+      operator: DoesNotExist

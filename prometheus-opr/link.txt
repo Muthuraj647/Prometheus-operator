@@ -1,0 +1,3 @@
+prometheus-operator : https://blog.container-solutions.com/prometheus-operator-beginners-guide
+
+istio: https://istio.io/latest/docs/setup/getting-started/
