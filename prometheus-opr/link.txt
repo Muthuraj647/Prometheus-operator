@@ -1,3 +1,25 @@
 prometheus-operator : https://blog.container-solutions.com/prometheus-operator-beginners-guide
 
 istio: https://istio.io/latest/docs/setup/getting-started/
+
+cd prometheus-opr
+kubectl create -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/master/bundle.yaml
+kubectl apply -f rbac.yaml
+kubectl apply -f prometheus.yaml
+kubectl apply -f service-monitor.yaml
+kubectl get pods
+kubectl port-forward svc/prometheus-operated 9090:9090
+
+kubectl apply -f kube-grafana
+kubectl get pods
+kubectl port-forward svc/grafana 3000
+
+
+install istio:
+    curl -L https://istio.io/downloadIstio | sh -
+    cd istio-1.13.3
+    export PATH=$PWD/bin:$PATH
+    istioctl install --set profile=demo -y
+    kubectl label namespace default istio-injection=enabled
+    kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
+    kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
