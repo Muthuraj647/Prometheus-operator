@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: yace
+  template:
+    metadata:
+      labels:
+        name: yace
+        app: yace
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+    spec:
+      containers:
+      - name: yace
+        image: ghcr.io/nerdswords/yet-another-cloudwatch-exporter:v0.38.0-alpha # release version as tag - Do not forget the version 'v'
+        imagePullPolicy: IfNotPresent
+        args:
+          - "--config.file=/tmp/config.yml"
+        ports:
+        - name: app
+          containerPort: 5000
+        volumeMounts:
+        - name: config-volume
+          mountPath: /tmp
+        - name: yacecredentials
+          mountPath: /exporter/.aws/credentials
+          subPath: credentials 
+      volumes:
+      - name: config-volume
+        configMap:
+          name: yace
+      - name: yacecredentials
+        secret: 
+          secretName: yacecredentials
+
+---
+
+# find . - name config.yml
+# minikube mount /home/muthuraj:/home/docker

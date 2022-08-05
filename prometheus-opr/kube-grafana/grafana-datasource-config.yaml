@@ -15,6 +15,7 @@ data:
                 "type": "prometheus",
                 "url": "http://prometheus-operated.default.svc:9090",
                 "version": 1
-            }
+            },
+           
         ]
     }

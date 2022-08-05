@@ -3,23 +3,102 @@ prometheus-operator : https://blog.container-solutions.com/prometheus-operator-b
 istio: https://istio.io/latest/docs/setup/getting-started/
 
 cd prometheus-opr
-kubectl create -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/master/bundle.yaml
+kubectl create -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/master/bundle.yaml 
 kubectl apply -f rbac.yaml
 kubectl apply -f prometheus.yaml
 kubectl apply -f service-monitor.yaml
-kubectl get pods
-kubectl port-forward svc/prometheus-operated 9090:9090
-
 kubectl apply -f kube-grafana
+kubectl get pods
+
+kubectl port-forward svc/prometheus-operated 9090:9090
+kubectl apply -f sm-api.yaml
+kubectl apply -f example.yaml
+kubectl apply -f kube-grafana
+kubectl apply -f service-monitor-cert.yaml
 kubectl get pods
 kubectl port-forward svc/grafana 3000
 
 
+install keda: https://keda.sh/docs/2.7/deploy/
+
+kubectl apply -f https://github.com/kedacore/keda/releases/download/v2.7.1/keda-2.7.1.yaml
+kubectl apply -f keda-so.yaml
+
+istall ca:
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
+
 install istio:
-    curl -L https://istio.io/downloadIstio | sh -
-    cd istio-1.13.3
-    export PATH=$PWD/bin:$PATH
-    istioctl install --set profile=demo -y
-    kubectl label namespace default istio-injection=enabled
-    kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml
-    kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+
+export PATH=$PWD/bin:$PATH
+istioctl install --set profile=demo -y
+kubectl create namespace apps
+kubectl label namespace apps istio-injection=enabled
+kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml -n apps
+kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml
+
+
+helm template \
+  cert-manager jetstack/cert-manager \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.8.0 \
+  > cert-manager.1.4.yaml
+
+
+//FLUX
+
+
+export GITHUB_TOKEN=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
+export GITHUB_USER=Muthuraj647
+
+flux bootstrap github \
+  --owner=$GITHUB_USER \
+  --repository=fleet-infra \
+  --branch=main \
+  --path=./clusters/my-cluster \
+  --personal
+
+
+//flux dev install https://fluxcd.io/docs/installation/
+
+flux install
+
+flux create source git podinfo \
+  --url=https://github.com/stefanprodan/podinfo \
+  --tag-semver=">=4.0.0" \
+  --interval=1m
+
+flux create kustomization podinfo-default \
+  --source=podinfo \
+  --path="./kustomize" \
+  --prune=true \
+  --validation=client \
+  --interval=10m \
+  --health-check="Deployment/podinfo.default" \
+  --health-check-timeout=2m
+
+
+
+
+//sealed secret
+
+kubectl apply -f https://github.com/bitnami-labs/sealed-secrets/releases/download/v0.18.0/controller.yaml
+
+
+//caBundle:
+
+echo <CA BUNDLE VALUE> | base64 -d  | openssl x509 -in - -noout -text
+
+LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJ3VENDQVVlZ0F3SUJBZ0lRZTY0N2JtcjhERXNmd1dJVEJCYTZxVEFLQmdncWhrak9QUVFEQXpBaU1TQXcKSGdZRFZRUURFeGRqWlhKMExXMWhibUZuWlhJdGQyVmlhRzl2YXkxallUQWVGdzB5TWpBM01USXhNVE01TlRKYQpGdzB5TXpBM01USXhNVE01TlRKYU1DSXhJREFlQmdOVkJBTVRGMk5sY25RdGJXRnVZV2RsY2kxM1pXSm9iMjlyCkxXTmhNSFl3RUFZSEtvWkl6ajBDQVFZRks0RUVBQ0lEWWdBRWx0LzRraG5naXlnVHJiNkNaUGJVc0gwdjFUZGgKV1ZYdmVxZmVNVGsyRXBKREdmNlhVWklKcytIelhmdTRZWFptOWRoeHRzM24xbnIyVHpLR0pOSGdEUCsvNXlpRApKeUdXd1h1dldHVWJ3cHJJdjQvRExockxzQ2x2UWQzeThac3BvMEl3UURBT0JnTlZIUThCQWY4RUJBTUNBcVF3CkR3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVUxOb3ZlOWpoNUo2K1NyUy8vVkxqa0FpRllEb3cKQ2dZSUtvWkl6ajBFQXdNRGFBQXdaUUl3T2t6aExvS0RFdE1KMTJXSkdFdHltckhpa3dMbG9PK0RsdlA1S2RDbgpaaEM0MktpalEvTkhOVExjSWltYjVzbnRBakVBdWxhUys1c1ROQzZsb0VwSVpnSVZrMlN0dTBiLzFwci9nZ1Y4CldzYnFTbGQ3eEZneS93MjUxeUxtWWlyQkxBd1kKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+
+
+echo LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJ3VENDQVVlZ0F3SUJBZ0lRZTY0N2JtcjhERXNmd1dJVEJCYTZxVEFLQmdncWhrak9QUVFEQXpBaU1TQXcKSGdZRFZRUURFeGRqWlhKMExXMWhibUZuWlhJdGQyVmlhRzl2YXkxallUQWVGdzB5TWpBM01USXhNVE01TlRKYQpGdzB5TXpBM01USXhNVE01TlRKYU1DSXhJREFlQmdOVkJBTVRGMk5sY25RdGJXRnVZV2RsY2kxM1pXSm9iMjlyCkxXTmhNSFl3RUFZSEtvWkl6ajBDQVFZRks0RUVBQ0lEWWdBRWx0LzRraG5naXlnVHJiNkNaUGJVc0gwdjFUZGgKV1ZYdmVxZmVNVGsyRXBKREdmNlhVWklKcytIelhmdTRZWFptOWRoeHRzM24xbnIyVHpLR0pOSGdEUCsvNXlpRApKeUdXd1h1dldHVWJ3cHJJdjQvRExockxzQ2x2UWQzeThac3BvMEl3UURBT0JnTlZIUThCQWY4RUJBTUNBcVF3CkR3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVUxOb3ZlOWpoNUo2K1NyUy8vVkxqa0FpRllEb3cKQ2dZSUtvWkl6ajBFQXdNRGFBQXdaUUl3T2t6aExvS0RFdE1KMTJXSkdFdHltckhpa3dMbG9PK0RsdlA1S2RDbgpaaEM0MktpalEvTkhOVExjSWltYjVzbnRBakVBdWxhUys1c1ROQzZsb0VwSVpnSVZrMlN0dTBiLzFwci9nZ1Y4CldzYnFTbGQ3eEZneS93MjUxeUxtWWlyQkxBd1kKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo= | base64 -d  | openssl x509 -in - -noout -text
+
+
+LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJ3VENDQVVlZ0F3SUJBZ0lRZTY0N2JtcjhERXNmd1dJVEJCYTZxVEFLQmdncWhrak9QUVFEQXpBaU1TQXcKSGdZRFZRUURFeGRqWlhKMExXMWhibUZuWlhJdGQyVmlhRzl2YXkxallUQWVGdzB5TWpBM01USXhNVE01TlRKYQpGdzB5TXpBM01USXhNVE01TlRKYU1DSXhJREFlQmdOVkJBTVRGMk5sY25RdGJXRnVZV2RsY2kxM1pXSm9iMjlyCkxXTmhNSFl3RUFZSEtvWkl6ajBDQVFZRks0RUVBQ0lEWWdBRWx0LzRraG5naXlnVHJiNkNaUGJVc0gwdjFUZGgKV1ZYdmVxZmVNVGsyRXBKREdmNlhVWklKcytIelhmdTRZWFptOWRoeHRzM24xbnIyVHpLR0pOSGdEUCsvNXlpRApKeUdXd1h1dldHVWJ3cHJJdjQvRExockxzQ2x2UWQzeThac3BvMEl3UURBT0JnTlZIUThCQWY4RUJBTUNBcVF3CkR3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVUxOb3ZlOWpoNUo2K1NyUy8vVkxqa0FpRllEb3cKQ2dZSUtvWkl6ajBFQXdNRGFBQXdaUUl3T2t6aExvS0RFdE1KMTJXSkdFdHltckhpa3dMbG9PK0RsdlA1S2RDbgpaaEM0MktpalEvTkhOVExjSWltYjVzbnRBakVBdWxhUys1c1ROQzZsb0VwSVpnSVZrMlN0dTBiLzFwci9nZ1Y4CldzYnFTbGQ3eEZneS93MjUxeUxtWWlyQkxBd1kKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+
+echo LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJ3VENDQVVlZ0F3SUJBZ0lRZTY0N2JtcjhERXNmd1dJVEJCYTZxVEFLQmdncWhrak9QUVFEQXpBaU1TQXcKSGdZRFZRUURFeGRqWlhKMExXMWhibUZuWlhJdGQyVmlhRzl2YXkxallUQWVGdzB5TWpBM01USXhNVE01TlRKYQpGdzB5TXpBM01USXhNVE01TlRKYU1DSXhJREFlQmdOVkJBTVRGMk5sY25RdGJXRnVZV2RsY2kxM1pXSm9iMjlyCkxXTmhNSFl3RUFZSEtvWkl6ajBDQVFZRks0RUVBQ0lEWWdBRWx0LzRraG5naXlnVHJiNkNaUGJVc0gwdjFUZGgKV1ZYdmVxZmVNVGsyRXBKREdmNlhVWklKcytIelhmdTRZWFptOWRoeHRzM24xbnIyVHpLR0pOSGdEUCsvNXlpRApKeUdXd1h1dldHVWJ3cHJJdjQvRExockxzQ2x2UWQzeThac3BvMEl3UURBT0JnTlZIUThCQWY4RUJBTUNBcVF3CkR3WURWUjBUQVFIL0JBVXdBd0VCL3pBZEJnTlZIUTRFRmdRVUxOb3ZlOWpoNUo2K1NyUy8vVkxqa0FpRllEb3cKQ2dZSUtvWkl6ajBFQXdNRGFBQXdaUUl3T2t6aExvS0RFdE1KMTJXSkdFdHltckhpa3dMbG9PK0RsdlA1S2RDbgpaaEM0MktpalEvTkhOVExjSWltYjVzbnRBakVBdWxhUys1c1ROQzZsb0VwSVpnSVZrMlN0dTBiLzFwci9nZ1Y4CldzYnFTbGQ3eEZneS93MjUxeUxtWWlyQkxBd1kKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo= | base64 -d  | openssl x509 -in - -noout -text
+
+
+
+

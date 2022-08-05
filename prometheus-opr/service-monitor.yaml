@@ -12,4 +12,12 @@ spec:
     any: true
   endpoints:
     - port: web
+      relabelings:
+      - sourceLabels: [__meta_kubernetes_endpoint_ready]
+        action: replace
+        targetLabel: readystate
+      #- regex: 'job'
+        #action: labeldrop
+
+
 

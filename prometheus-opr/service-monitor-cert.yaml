@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager
+spec:
+  endpoints:
+  - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    interval: 30s
+    path: /metrics
+    scheme: http
+    targetPort: 9402
+  jobLabel: component
+  namespaceSelector:
+    matchNames:
+    - cert-manager
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+
