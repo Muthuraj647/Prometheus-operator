@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prom-rule
+  labels:
+    name: prometheusrule
+    role: promrul
+spec:
+  groups:
+  - name: example.rules
+    rules:
+    - record: apiserver_request:total
+      expr: sum(increase(apiserver_request_total[5m])) by(verb)
+    - record: apiserver_request:latency
+      expr: sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le,namespace)
+    

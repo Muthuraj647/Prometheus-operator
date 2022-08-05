@@ -7,6 +7,10 @@ spec:
   serviceMonitorNamespaceSelector: {}
   serviceMonitorSelector: {}
   podMonitorSelector: {}
+  ruleSelector: 
+    matchLabels:
+      name: prometheusrule
+      role: promrul
   resources:
     requests:
       memory: 400Mi
