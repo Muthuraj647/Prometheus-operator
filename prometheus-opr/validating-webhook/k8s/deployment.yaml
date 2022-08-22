@@ -1,0 +1,22 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-validationg-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: custom-validationg-webhook
+  template:
+    metadata:
+      name: custom-validationg-webhook
+      labels:
+        app: custom-validationg-webhook
+    spec:
+      containers:
+      - name: app
+        image: muthurajrprivaterepo/validate:v2
+        ports:
+        - name: validate
+          containerPort: 8089

@@ -2,7 +2,7 @@ prometheus-operator : https://blog.container-solutions.com/prometheus-operator-b
 
 istio: https://istio.io/latest/docs/setup/getting-started/
 
-cd prometheus-opr
+cd K8s/Prometheus-operator/Prometheus-operator/prometheus-opr
 kubectl create -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/master/bundle.yaml 
 kubectl apply -f rbac.yaml
 kubectl apply -f prometheus.yaml
@@ -48,7 +48,7 @@ helm template \
 //FLUX
 
 
-export GITHUB_TOKEN=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
+export GITHUB_TOKEN=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
 export GITHUB_USER=Muthuraj647
 
 flux bootstrap github \
@@ -56,7 +56,8 @@ flux bootstrap github \
   --repository=fleet-infra \
   --branch=main \
   --path=./clusters/my-cluster \
-  --personal
+  --personal \
+  --version=v0.31.0
 
 
 //flux dev install https://fluxcd.io/docs/installation/

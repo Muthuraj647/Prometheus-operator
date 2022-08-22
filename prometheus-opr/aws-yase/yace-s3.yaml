@@ -16,22 +16,18 @@ data:
           - key: name
             value: yace-elb
         enableMetricData: true
+        period: 300
+        length: 600        
         metrics:
           - name: HealthyHostCount
             statistics:
             - Average
-            period: 300
-            length: 600
           - name: BackendConnectionErrors
             statistics:
             - Average
-            period: 300
-            length: 600
           - name: EstimatedALBConsumedLCUs
             statistics:
             - Average
-            period: 300
-            length: 600
 ---
 
 

@@ -1,0 +1,19 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: nginx.validate.extend.k8s
+webhooks:
+- name: nginx.validate.extend.k8s
+  failurePolicy: Ignore
+  clientConfig:
+    service:
+      name: custom-validationg-webhook
+      namespace: default
+      path: "/"
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  sideEffects: None
+  admissionReviewVersions: ["v1beta1", "v1"]
