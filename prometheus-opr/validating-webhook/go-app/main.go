@@ -74,9 +74,9 @@ func handleErr(w http.ResponseWriter, r *admission.AdmissionReview, err error) {
 	json.NewEncoder(w).Encode(r)
 }
 
-func main() {
-	fmt.Println("Ready to Validate")
-	m := http.NewServeMux()
-	m.HandleFunc("/", validation)
-	http.ListenAndServe(":8089", m)
-}
+// func main() {
+// 	fmt.Println("Ready to Validate")
+// 	m := http.NewServeMux()
+// 	m.HandleFunc("/", validation)
+// 	http.ListenAndServe(":8089", m)
+// }
