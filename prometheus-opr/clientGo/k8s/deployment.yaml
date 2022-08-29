@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clientgoapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clientgoapp
+  template:
+    metadata:
+      name: clientgoapp
+      labels:
+        app: clientgoapp
+    spec:
+      containers:
+      - name: app
+        image: muthurajrprivaterepo/sampleclientgo:v2.5
+        command:
+        - /app
+        - --env-name=AWS_WEB_IDENTITY_TOKEN_FILE
+        ports:
+        - name: http-metrics
+          containerPort: 8888
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mutate-metrics
+spec:
+  selector: 
+    app: clientgoapp
+  ports:
+    - port: 8888
+      targetPort: 8888
+      name: http-metrics
+
+# kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:default

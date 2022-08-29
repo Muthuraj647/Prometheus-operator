@@ -1,0 +1,30 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      name: nginx
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+        env:
+        - name: AWS_DEFAULT_REGION
+          value: us-west-2
+        - name: AWS_REGION
+          value: us-west-2
+        - name: AWS_ROLE_ARN
+          value: "arn:aws:iam::111122223333:role/s3-reader"
+        - name: AWS_WEB_IDENTITY_TOKEN_FILE
+          value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+        - name: AWS_STS_REGIONAL_ENDPOINTS
+          value: "regional"
