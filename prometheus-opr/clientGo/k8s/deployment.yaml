@@ -1,3 +1,5 @@
+# kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:defaulta
+# apply above line first
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,10 +17,11 @@ spec:
     spec:
       containers:
       - name: app
-        image: muthurajrprivaterepo/sampleclientgo:v2.5
+        image: docker.io/muthurajrprivaterepo/sampleclientgo:v3.3
         command:
         - /app
-        - --env-name=AWS_WEB_IDENTITY_TOKEN_FILE
+        #set interval flag (default 60s)
+        - interval=60
         ports:
         - name: http-metrics
           containerPort: 8888
@@ -28,6 +31,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mutate-metrics
+  labels:
+    app: clientgoapp
 spec:
   selector: 
     app: clientgoapp
@@ -35,5 +40,3 @@ spec:
     - port: 8888
       targetPort: 8888
       name: http-metrics
-
-# kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:default
