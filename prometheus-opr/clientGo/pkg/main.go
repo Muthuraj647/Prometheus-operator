@@ -18,15 +18,23 @@ import (
 )
 
 //for prometheus
-var eksmutated = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "eks_pod_identity_webhook_mutated",
-	Help: "Number of Pods Mutated with EKS Pod Identity webhook",
+var mutated = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "admission_controller_pod_mutate_status",
+	Help: "Pods Mutated by Admission Controller",
 },
-	[]string{"namespace", "pod", "container"},
+	[]string{"namespace", "pod", "container", "mutatingservice", "status"},
+)
+
+var mutate_ignored = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "admission_controller_pod_mutate_ignored_reason",
+	Help: "Pods not Mutated by Admission Controller",
+},
+	[]string{"namespace", "pod", "container", "reason"},
 )
 
 func register() {
-	prometheus.MustRegister(eksmutated)
+	prometheus.MustRegister(mutated)
+	prometheus.MustRegister(mutate_ignored)
 }
 func init() {
 	//registering the metrics
@@ -34,37 +42,18 @@ func init() {
 }
 
 //record the metrics data points
-func record(namespace, pod, container string, mutated bool) {
-	if mutated {
-		eksmutated.WithLabelValues(namespace, pod, container).Add(1)
+func record(namespace, pod, container, mutatingservice, reason, status string, ignored bool) {
+
+	if ignored {
+		mutate_ignored.WithLabelValues(namespace, pod, container, reason).Add(1)
 	} else {
-		eksmutated.WithLabelValues(namespace, pod, container).Add(0)
+		mutated.WithLabelValues(namespace, pod, container, mutatingservice, status).Add(1)
 	}
-}
-
-func main() {
-
-	env := flags.String("env-name", "AWS_ROLE_ARN", "Env Variable Name to check")
-	interval := flags.Int("interval", 60, "Interval of Pod Listing in Seconds, Default 60s")
-	klog.InitFlags(goflag.CommandLine)
-
-	goflag.CommandLine.VisitAll(func(f *goflag.Flag) {
-		flags.CommandLine.AddFlag(flags.PFlagFromGoFlag(f))
-	})
-
-	flags.Parse()
-
-	_ = goflag.CommandLine.Parse([]string{})
-	fmt.Printf("ENV args :%s", *env)
-	go operation(*env, *interval)
-	//for setting prometheus endpoint
-	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":8888", nil)
 
 }
 
 //for setting prometheus endpoint
-func operation(env_var string, intervalOfListing int) {
+func operation(intervalOfListing int) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -99,27 +88,89 @@ func operation(env_var string, intervalOfListing int) {
 				fmt.Printf("Pod Namespace = %s\n", namespace)
 				fmt.Printf("Pod Status = %s\n", podInfo.Status.Phase)
 				fmt.Printf("Age = %s\n", age)
-				//fmt.Printf("Env => %s = %s\n", podInfo.Spec.Containers[0].Env.Name, podInfo.Spec.Containers[0].Env.Value)
 
-				for _, containers := range podInfo.Spec.Containers {
-					if strings.EqualFold(containers.Name, "Istio-Proxy") {
-						continue
+				//to read service account
+				saName := podInfo.Spec.ServiceAccountName
+
+				//find sa from API server
+
+				sa, sa_err := clientset.CoreV1().ServiceAccounts(namespace).Get(context.TODO(), saName, metav1.GetOptions{})
+				if sa_err != nil {
+					fmt.Println("Can't find Service Account " + saName)
+				}
+
+				annotations := sa.Annotations
+				doesHaveAWSAnnotation := false
+				for key, val := range annotations {
+					if strings.EqualFold(key, "eks.amazonaws.com/role-arn") && strings.HasPrefix(val, "arn:aws:iam::") {
+						doesHaveAWSAnnotation = true
+						break
 					}
-					envs := containers.Env
-					c := 0
-					for _, env := range envs {
-						if strings.EqualFold(env.Name, env_var) && env.Value != "" {
-							fmt.Printf("Env => %s : %s\n", env_var, env.Value)
-							c++
-							break
+				}
+				//to get particular namespace
+
+				ns, _ := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+
+				labels := ns.Labels
+
+				var sidecarEnabled = false
+				for key, val := range labels {
+					if key == "istio-injection" && val == "enabled" {
+						sidecarEnabled = true
+						break
+					}
+				}
+				sidecar := 0
+
+				if sidecarEnabled || doesHaveAWSAnnotation {
+
+					for _, containers := range podInfo.Spec.Containers {
+						if sidecarEnabled && sidecar == 0 {
+							if strings.EqualFold(containers.Name, "istio-proxy") {
+								fmt.Println("sidecar injected")
+								sidecar = 1
+								continue
+							}
+						}
+
+						if doesHaveAWSAnnotation {
+
+							//checking for pod envs
+							envs := containers.Env
+							env_var := "AWS_ROLE_ARN"
+							c := 0
+							for _, env := range envs {
+								if strings.EqualFold(env.Name, env_var) && env.Value != "" {
+									fmt.Printf("Env => %s : %s\n", env_var, env.Value)
+									c++
+									break
+								}
+							}
+							if c == 1 {
+								fmt.Printf("Container Name = %s\n", containers.Name)
+								record(namespace, name, containers.Name, "Pod-Identity-Webhook", "", "true", false)
+							} else {
+								record(namespace, name, containers.Name, "Pod-Identity-Webhook", "", "false", false)
+							}
+
 						}
 					}
-					if c == 1 {
-						fmt.Printf("Container Name = %s\n", containers.Name)
-						record(namespace, name, containers.Name, true)
-					} else {
-						record(namespace, name, containers.Name, false)
-					}
+				}
+
+				if !sidecarEnabled {
+					fmt.Println("side car injection disabled")
+					record(namespace, name, "", "", "istio-injection:disabled", "", true)
+				}
+
+				if !doesHaveAWSAnnotation {
+					fmt.Println("don't have aws-role-arn annotation")
+					record(namespace, name, "", "", "Service-Account does not Annotated with aws-role-arn", "", true)
+				}
+
+				if sidecar == 1 {
+					record(namespace, name, "istio-proxy", "sidecar-injector", "", "true", false)
+				} else if sidecar == 0 && sidecarEnabled {
+					record(namespace, name, "istio-proxy", "sidecar-injector", "", "false", false)
 				}
 
 			}
@@ -127,4 +178,25 @@ func operation(env_var string, intervalOfListing int) {
 
 		time.Sleep(time.Duration(intervalOfListing) * time.Second)
 	}
+}
+
+func main() {
+
+	//env := flags.String("env-name", "AWS_ROLE_ARN", "Env Variable Name to check")
+	interval := flags.Int("interval", 60, "Interval of Pod Listing in Seconds, Default 60s")
+	klog.InitFlags(goflag.CommandLine)
+
+	goflag.CommandLine.VisitAll(func(f *goflag.Flag) {
+		flags.CommandLine.AddFlag(flags.PFlagFromGoFlag(f))
+	})
+
+	flags.Parse()
+
+	_ = goflag.CommandLine.Parse([]string{})
+	//fmt.Printf("ENV args :%s\n", *env)
+	go operation(*interval)
+	//for setting prometheus endpoint
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(":8888", nil)
+
 }
