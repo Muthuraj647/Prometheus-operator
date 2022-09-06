@@ -2,7 +2,7 @@ prometheus-operator : https://blog.container-solutions.com/prometheus-operator-b
 
 istio: https://istio.io/latest/docs/setup/getting-started/
 
-cd K8s/Prometheus-operator/Prometheus-operator/prometheus-opr
+cd K8s/Prometheus-operator/Prometheus-operator/prometheus-opr/common
 kubectl create -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/master/bundle.yaml 
 kubectl apply -f rbac.yaml
 kubectl apply -f prometheus.yaml

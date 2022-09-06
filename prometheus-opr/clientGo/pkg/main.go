@@ -18,12 +18,12 @@ import (
 )
 
 //for prometheus
-var mutated = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "admission_controller_pod_mutate_status",
-	Help: "Pods Mutated by Admission Controller",
-},
-	[]string{"namespace", "pod", "container", "mutatingservice", "status"},
-)
+// var mutated = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+// 	Name: "admission_controller_pod_mutate_status",
+// 	Help: "Pods Mutated by Admission Controller",
+// },
+// 	[]string{"namespace", "pod", "container", "mutatingservice", "status"},
+// )
 
 var mutate_ignored = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "admission_controller_pod_mutate_ignored_reason",
@@ -32,22 +32,62 @@ var mutate_ignored = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	[]string{"namespace", "pod", "container", "reason"},
 )
 
+//counter
+
+var mutated = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "admission_controller_pod_mutated",
+	Help: "Pods Mutated by Admission Controller",
+},
+)
+
+var mutate_failed = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "admission_controller_pod_mutate_failed",
+	Help: "Pods Mutation Failures",
+},
+)
+
+var mutate_status = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "admission_controller_pod_mutate_status",
+	Help: "Pods Mutated by Admission Controller",
+},
+	[]string{"namespace", "pod", "container", "mutatingservice", "status"},
+)
+
 func register() {
 	prometheus.MustRegister(mutated)
 	prometheus.MustRegister(mutate_ignored)
+	prometheus.MustRegister(mutate_failed)
+	prometheus.MustRegister(mutate_status)
 }
 func init() {
 	//registering the metrics
 	register()
 }
 
+func reset() {
+	mutate_status.Reset()
+}
+
 //record the metrics data points
-func record(namespace, pod, container, mutatingservice, reason, status string, ignored bool) {
+func record(namespace, pod, container, mutatingservice, reason string, status, ignored bool) {
 
 	if ignored {
-		mutate_ignored.WithLabelValues(namespace, pod, container, reason).Add(1)
+		mutate_ignored.WithLabelValues(namespace, pod, container, reason).Set(1)
 	} else {
-		mutated.WithLabelValues(namespace, pod, container, mutatingservice, status).Add(1)
+		if status {
+			reset()
+			mutate_status.WithLabelValues(namespace, pod, container, mutatingservice, "true").Set(1)
+			mutate_status.WithLabelValues(namespace, pod, container, mutatingservice, "false").Set(0)
+			mutated.Inc()
+			//mutated.WithLabelValues(namespace, pod, container, mutatingservice, "false").Set(0)
+		} else {
+			reset()
+			mutate_failed.Inc()
+			mutate_status.WithLabelValues(namespace, pod, container, mutatingservice, "false").Set(1)
+			mutate_status.WithLabelValues(namespace, pod, container, mutatingservice, "true").Set(0)
+			//mutated.WithLabelValues(namespace, pod, container, mutatingservice, "true").Set(0)
+		}
+
 	}
 
 }
@@ -78,8 +118,6 @@ func operation(intervalOfListing int) {
 
 			age := time.Since(t1)
 
-			//logic for filter pods started 2 mins before
-
 			if age.Minutes() <= 1 {
 				namespace := podInfo.Namespace
 				name := podInfo.Name
@@ -88,6 +126,11 @@ func operation(intervalOfListing int) {
 				fmt.Printf("Pod Namespace = %s\n", namespace)
 				fmt.Printf("Pod Status = %s\n", podInfo.Status.Phase)
 				fmt.Printf("Age = %s\n", age)
+
+				// if podInfo.Status.Phase == "Succeeded" {
+				// 	reset()
+				// 	continue
+				// }
 
 				//to read service account
 				saName := podInfo.Spec.ServiceAccountName
@@ -109,29 +152,31 @@ func operation(intervalOfListing int) {
 				}
 				//to get particular namespace
 
-				ns, _ := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+				//uncomment to enable istio-metrics
 
-				labels := ns.Labels
+				//ns, _ := clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
+
+				//labels := ns.Labels
 
 				var sidecarEnabled = false
-				for key, val := range labels {
-					if key == "istio-injection" && val == "enabled" {
-						sidecarEnabled = true
-						break
-					}
-				}
-				sidecar := 0
+				// for key, val := range labels {
+				// 	if key == "istio-injection" && val == "enabled" {
+				// 		sidecarEnabled = true
+				// 		break
+				// 	}
+				// }
+				// sidecar := 0
 
 				if sidecarEnabled || doesHaveAWSAnnotation {
 
 					for _, containers := range podInfo.Spec.Containers {
-						if sidecarEnabled && sidecar == 0 {
-							if strings.EqualFold(containers.Name, "istio-proxy") {
-								fmt.Println("sidecar injected")
-								sidecar = 1
-								continue
-							}
-						}
+						// if sidecarEnabled && sidecar == 0 {
+						// 	if strings.EqualFold(containers.Name, "istio-proxy") {
+						// 		fmt.Println("sidecar injected")
+						// 		sidecar = 1
+						// 		continue
+						// 	}
+						// }
 
 						if doesHaveAWSAnnotation {
 
@@ -148,35 +193,36 @@ func operation(intervalOfListing int) {
 							}
 							if c == 1 {
 								fmt.Printf("Container Name = %s\n", containers.Name)
-								record(namespace, name, containers.Name, "Pod-Identity-Webhook", "", "true", false)
+								record(namespace, name, containers.Name, "Pod-Identity-Webhook", "", true, false)
 							} else {
-								record(namespace, name, containers.Name, "Pod-Identity-Webhook", "", "false", false)
+								record(namespace, name, containers.Name, "Pod-Identity-Webhook", "", false, false)
 							}
 
 						}
 					}
 				}
 
-				if !sidecarEnabled {
-					fmt.Println("side car injection disabled")
-					record(namespace, name, "", "", "istio-injection:disabled", "", true)
-				}
+				// if !sidecarEnabled {
+				// 	fmt.Println("side car injection disabled")
+				// 	record(namespace, name, "", "", "istio-injection:disabled", false, true)
+				// }
 
 				if !doesHaveAWSAnnotation {
 					fmt.Println("don't have aws-role-arn annotation")
-					record(namespace, name, "", "", "Service-Account does not Annotated with aws-role-arn", "", true)
+					record(namespace, name, "", "", "Service-Account does not Annotated with aws-role-arn", false, true)
 				}
 
-				if sidecar == 1 {
-					record(namespace, name, "istio-proxy", "sidecar-injector", "", "true", false)
-				} else if sidecar == 0 && sidecarEnabled {
-					record(namespace, name, "istio-proxy", "sidecar-injector", "", "false", false)
-				}
+				// if sidecar == 1 {
+				// 	record(namespace, name, "istio-proxy", "sidecar-injector", "", true, false)
+				// } else if sidecar == 0 && sidecarEnabled {
+				// 	record(namespace, name, "istio-proxy", "sidecar-injector", "", false, false)
+				// }
 
 			}
 		}
 
 		time.Sleep(time.Duration(intervalOfListing) * time.Second)
+
 	}
 }
 
