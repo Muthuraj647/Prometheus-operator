@@ -1,4 +1,4 @@
-# kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:defaulta
+# kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:default
 # apply above line first
 apiVersion: apps/v1
 kind: Deployment
@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: docker.io/muthurajrprivaterepo/sampleclientgo:v3.3
+        image: muthurajrprivaterepo/sampleclientgo:v5.4
         command:
         - /app
         #set interval flag (default 60s)
