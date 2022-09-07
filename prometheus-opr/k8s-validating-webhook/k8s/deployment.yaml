@@ -62,9 +62,10 @@ spec:
         app: validatingwebhook
     
     spec:
+      serviceAccountName: validatingwebhook
       containers:
       - name: app
-        image: muthurajrprivaterepo/validate:v0.4
+        image: muthurajrprivaterepo/validate:v0.8
         command:
         - /main
         ports:

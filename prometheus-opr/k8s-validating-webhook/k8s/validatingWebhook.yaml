@@ -6,7 +6,7 @@ metadata:
     cert-manager.io/inject-ca-from: default/validatingwebhook
 webhooks:
 - name: nginx.validate.extend.k8s
-  failurePolicy: Fail
+  failurePolicy: Ignore
   clientConfig:
     service:
       name: validatingwebhook
