@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: muthurajrprivaterepo/sampleclientgo:v5.4
+        image: muthurajrprivaterepo/sampleclientgo:v5.5
         command:
         - /app
         #set interval flag (default 60s)

@@ -1,0 +1,21 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validatingwebhook
+  annotations:
+    cert-manager.io/inject-ca-from: default/validatingwebhook
+webhooks:
+- name: nginx.validate.extend.k8s
+  failurePolicy: Fail
+  clientConfig:
+    service:
+      name: validatingwebhook
+      namespace: default
+      path: "/validate"
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  sideEffects: None
+  admissionReviewVersions: ["v1", "v1beta1"]

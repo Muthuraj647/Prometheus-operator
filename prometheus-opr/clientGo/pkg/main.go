@@ -118,7 +118,7 @@ func operation(intervalOfListing int) {
 
 			age := time.Since(t1)
 
-			if age.Minutes() <= 1 {
+			if int(age.Seconds()) <= intervalOfListing {
 				namespace := podInfo.Namespace
 				name := podInfo.Name
 
