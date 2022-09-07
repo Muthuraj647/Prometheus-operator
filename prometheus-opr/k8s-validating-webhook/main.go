@@ -22,12 +22,21 @@ func main() {
 	tlsKeyFile := flag.String("tls-key", "/etc/webhook/certs/tls.key", "(out-of-cluster) TLS key file path")
 	tlsCertFile := flag.String("tls-cert", "/etc/webhook/certs/tls.crt", "(out-of-cluster) TLS certificate file path")
 
+	//env to verify
+	annotation_name := flag.String("annotation", "eks.amazonaws.com/role-arn", "Annotation to Validate")
+	value := flag.String("annotation-value", "arn:aws:iam", "Env Value Prefix to Validate")
+	env := flag.String("env", "AWS_ROLE_ARN", "Env Variable to Validate")
+
 	klog.InitFlags(goflag.CommandLine)
 	goflag.CommandLine.VisitAll(func(f *goflag.Flag) {
 		flag.CommandLine.AddFlag(flag.PFlagFromGoFlag(f))
 	})
 	flag.Parse()
 	_ = goflag.CommandLine.Parse([]string{})
+
+	handler.SA_Annotation = *annotation_name
+	handler.Env_name = *env
+	handler.Env_value = *value
 
 	addr := fmt.Sprintf(":%d", *port)
 	metricsAddr := fmt.Sprintf(":%d", *metricsPort)

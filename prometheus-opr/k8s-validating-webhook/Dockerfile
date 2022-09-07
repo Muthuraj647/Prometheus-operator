@@ -27,5 +27,5 @@ VOLUME /etc/webhook
 #CMD ["./main"]
 ENTRYPOINT ["/main"]
 
-# docker build -t muthurajrprivaterepo/validate:v0.4 .
-# docker push muthurajrprivaterepo/validate:v0.4
+# docker build -t muthurajrprivaterepo/validate:v0.8 .
+# docker push muthurajrprivaterepo/validate:v0.8
