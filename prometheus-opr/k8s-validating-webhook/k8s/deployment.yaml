@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: validatingwebhook
+  labels:
+    app: validatingwebhook
+spec:
+  selector: 
+    app: validatingwebhook
+  ports:
+    - port: 8090
+      targetPort: 8090
+      name: http-metrics
+    - port: 443
+      targetPort: 443
+      name: https
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: validatingwebhook
+  namespace: default
+spec:
+  secretName: validatingwebhook-cert
+  commonName: "validatingwebhook.default.svc"
+  dnsNames:
+  - "validatingwebhook"
+  - "validatingwebhook.default"
+  - "validatingwebhook.default.svc"
+  - "validatingwebhook.default.svc.local"
+  isCA: true
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+---
+# apply above line first
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: validatingwebhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: validatingwebhook
+  
+  template:
+    metadata:
+      name: validatingwebhook
+  
+      labels:
+        app: validatingwebhook
+    
+    spec:
+      containers:
+      - name: app
+        image: muthurajrprivaterepo/validate:v0.4
+        command:
+        - /main
+        ports:
+        - name: http-metrics
+          containerPort: 8090
+        - name: https
+          containerPort: 443
+        volumeMounts:
+        - name: cert
+          mountPath: "/etc/webhook/certs"
+          readOnly: true
+      volumes:
+      - name: cert
+        secret:
+          secretName: validatingwebhook-cert
